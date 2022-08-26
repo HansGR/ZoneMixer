@@ -1,0 +1,34 @@
+# List of doors in Magitek Factory.  format: DoorID_RoomID(_type).  type = [d, o, i] for [2-way door, out only, in only].
+# NOTE: MtekA2 is the mini platform that is part of the MtekA map.  For this to work we would need a special condition
+# in ZoneWalker that forced the connection 005_MtekA2_o --> 002_MtekA_i as the first step.
+# Similar forced connections could make other maps work too (e.g. in Esper Mtn 4).
+# However writing the forcing code is more challenging than I expected: sometimes it works, but often it fails due to
+# creating zones which it thinks are inaccessible.
+005_MtekA2_o_002    # MtekA2 elevator to MtekA with FORCING
+002_MtekA_i_     # MtekA elevator from MtekA2
+004_MtekA2_d_    # MtekA2 door from MtekB
+007_MtekB_d_     # MtekB door to MtekA2
+000_Vector_d_    # Vector entrance
+001_MtekA_d_     # MtekA door from Vector
+003_MtekA_o_     # MtekA conveyor exit to MtekB
+006_MtekB_i_     # MtekB conveyor from MtekA
+008_MtekB_o_     # MtekB pipe loop exit
+009_MtekB_i_     # MtekB pipe loop entrance
+010_MtekB_o_     # MtekB conveyor exit to Pit
+011_MtekB_i_     # MtekB hook entrance from Pit
+012_MtekPit_i_   # Pit conveyor entrance
+013_MtekPit_o_   # Pit hook exit
+014_MtekPit_d_   # Pit door to savept
+015_MtekPit_d_   # Pit door to staircase
+016_MtekSave_d_  # Pit savepoint room
+017_MtekStair_d_ # Staircase lower door
+018_MtekStair_d_ # Staircase upper door
+019_MtekHall_d_  # Tube hallway door from stairs
+020_MtekHall_d_  # Tube hallway door to antechamber
+021_MtekAnte_d_  # Antechamber door from tube hallway
+022_MtekAnte_d_  # Antechamber door to Cids Lab
+023_MtekLab_d_   # Cid's Lab entrance
+024_MtekLab_o_   # Cid's Lab elevator out (activated by switch, would need code to reset this event)
+025_MtekCart_i_  # Cid's basement elevator in
+026_MtekCart_o_  # Cid's basement minecart out
+027_Vector_i_    # Vector minecart ride ending (event?)

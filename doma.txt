@@ -1,0 +1,24 @@
+# List of doors in Doma Castle.  format: DoorID_RoomID(_type).  type = [d, i, o] for [2-way door, in only, out only].
+000_DomaA_d     # exit to world map
+001_DomaA_d     # castle entrance
+002_DomaB_d     # castle hall, front door
+003_DomaB_d     # castle hall, lower left
+004_DomaB_d     # castle hall, lower right
+005_DomaB_d     # castle hall, to throne room
+006_DomaB_d     # castle hall, to rampart
+007_DomaB_d     # castle hall, to Cyan's bedroom
+008_DomaB_d     # castle hall, to stairs
+009_DomaC_d     # barracks hallway, to hall left
+010_DomaC_d     # barracks hallway, to hall right
+011_DomaC_d     # barracks hallway, to left bedroom
+012_DomaC_d     # barracks hallway, to right bedroom
+013_DomaD_d     # 6-bed room entrance
+014_DomaE_d     # 4-bed room entrance
+015_DomaF_d     # Doma throne room
+016_DomaG_d     # Doma rampart, to entrance
+017_DomaG_d     # Doma rampart, to treasure
+018_DomaH_d     # Treasure room
+019_DomaI_d     # Cyan's bedroom
+020_DomaJ_d     # Doma stairway, to hall
+021_DomaJ_d     # Doma stairway, to balcony
+022_DomaK_d     # Doma balcony

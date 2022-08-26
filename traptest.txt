@@ -1,0 +1,11 @@
+# Trap door test file.  Two rooms, many one-way doors.  format: DoorID_RoomID(_type).  type = [d, o, i] for [2-way door, exit "out" only, entrance "in" only].
+000_A_o     # Room A trap exit
+001_A_o     # Room A trap exit
+002_A_o     # Room A trap exit
+003_A_i     # Room A trap enter
+004_A_i     # Room A trap enter
+005_B_o     # Room B trap exit
+006_B_o     # Room B trap exit
+007_B_i     # Room B trap enter
+008_B_i     # Room B trap enter
+009_B_i     # Room B trap enter
