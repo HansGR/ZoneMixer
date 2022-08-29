@@ -30,7 +30,8 @@ def zoneEater(fn):
     forcing = {}
     for j in range(len(data)):
         if len(data[j][3]) > 0:
-            forcing[data[j][0]] = data[j][3]
+            # Forcing[nob] = [list of valid forced nibs (usually length=1)]
+            forcing[data[j][0]] = data[j][3:]
 
     # Create dictionary for which doors are in each room
     room_ids = list(set([j[1] for j in data]))
@@ -213,49 +214,25 @@ def zoneWalker(room_doors, zones, zone_counts, forcing={}):
                 nib_zones[nib] = zi
                 zone_nibs[zi].append(nib)
 
+    to_force = [n for n in forcing.keys() if n in nobs]
+    forced_nibs = []
+    for n in to_force:
+        forced_nibs.extend(forcing[n])
+
     # Walk through all valid one-ways, connecting all zones and returning to the starting point
     map = []
     walk = []
-    to_force = [n for n in forcing.keys() if n in nobs]
     if len(nobs) > 0:
         if len(to_force) > 0:
-            while len(to_force) > 0:
-                nob = to_force.pop(0)
-                zone1 = nob_zones[nob]
-                nobs.remove(nob)
-                nib = forcing[nob]
-                zone2 = nib_zones[nib]
-                nibs.remove(nib)
-
-                # Write the connection
-                map.append([nob, nib])
-                print('Forced: ', nob, ' (zone ', zone1, ') --> ', nib, '(zone ', zone2, ')')
-
-                # Update the zone counts
-                zone_counts[zone1][1] -= 1  # decrement exits (nobs) in zone1
-                zone_counts[zone2][2] -= 1  # decrement entrances (nibs) in zone2
-
-                # Add to the walk?  It's not really a walk if there's more than one forcing.
-                walk.append(zone2)
-
-            # Construct the list of all downstream exits...
-            z2i = walk.index(zone2)
-            available = []
-            for wi in range(z2i, len(walk)):
-                available.extend([nob for nob in zone_nobs[walk[wi]] if nob in nobs])
-            # ... And randomly select one to connect:
-            available = list(set(available))  # just unique values
-            print('Available exits: ', available)
-            if len(available) > 0:
-                nob = available.pop(randrange(len(available)))
-                nobs.remove(nob)
-                zone1 = nob_zones[nob]
-
+            # Start with a forced nob (reduces errors)
+            nob = to_force[0]
+            nobs.remove(nob)
         else:
             # Choose a random trap door to begin
             nob = nobs.pop(randrange(len(nobs)))
-            zone1 = nob_zones[nob]
-            walk.append(zone1) # record the path of the walk
+
+        zone1 = nob_zones[nob]
+        walk.append(zone1) # record the path of the walk
 
         while len(nibs) > 0:
             print('\n\nWalk state:', walk)
@@ -268,43 +245,83 @@ def zoneWalker(room_doors, zones, zone_counts, forcing={}):
             # Construct list of valid entrances: start with all nibs, then remove invalid ones
             valid = [n for n in nibs]
             invalid = []
-            if len(nibs) > 1:
+
+            is_forced = nob in forcing.keys()
+            if is_forced:
+                # This is a forced connection.  There are two uses of this:
+                # 1. forcing[nob] = [forced nibs]   # Only the entrances (nibs) in forcing[nob] are valid.
+                # 2. forcing[nob] = [forced nobs]   # Force one exit to equal another exit (e.g. Umaro's cave #2 trapdoors)
+                # We check whether forcing[nob] is entrances (nib) or exits (nob);
+                #   If it's a list of entrances, connect one of them;
+                #   if it's a list of exits, look to see if one of them is already connected;
+                #       if so, connect this one to that same entrance (don't decrement entrances in zone 2)
+                #       if not, just connect this one as normal.
+                print('Found a forced connection...')
+                forced = forcing[nob]
+                these_nibs = [n for n in forced if n in nibs]
+                if len(these_nibs) > 0:
+                    # this is a list of entrances that are valid for this exit
+                    print('\tSelecting only forced nibs:', these_nibs)
+                    valid = these_nibs
+                else:
+                    # forced is a list of exits that must match.
+                    # Look to see if any have been assigned.
+                    print('\tLooking for previously-assigned paired exits... ')
+                    assigned = [n for n in forced if n not in nobs]
+                    if len(assigned) > 0:
+                        # Find the previously-assigned connection in the map; take the nib
+                        mapped_nib = [m for m in map if assigned[0] == m[0]][0][1]
+                        print('\tFound one: ', assigned, ' --> ', mapped_nib)
+                        valid = [mapped_nib]
+                    else:
+                        # Assign this one normally
+                        print('\tNone found.  Proceeding normally.')
+                        is_forced = False
+
+            if len(nibs) > 1 and not is_forced:
                 # Remove doors that would create a zone with zero exits or zero entrances
                 # i.e. a zone with [0, n, 0], or [0, 0, n].
                 z1_exits = zone_counts[zone1][1]
                 z1_enter = zone_counts[zone1][2]
+                invalid.extend(forced_nibs)  # don't allow connections to forced entrances
 
                 for n in valid:
                     print('Checking ', n, '... ')
                     z2 = nib_zones[n]
+
+                    # We need to remove loops into the walk that have no downstream exits
                     if zone1 == z2:
                         # Connection will remove an exit and an entrance from the zone
-                        print('is same zone:', zone1, '--> [', z1_exits, z1_enter,']')
-                        if ((z1_exits - 1) < 1): # or ((z1_enter - 1) < 1):
+                        print('\tis same zone:', zone1, '--> [', z1_exits, z1_enter,']')
+                        if ((z1_exits - 1) < 1):
                             # Connection would create a walk with no exits # or no entrances
-                            print('Removing ', n)
-                            invalid.append(n)
-                    else:
-                        z2_exits = zone_counts[z2][1]
-                        z2_enter = zone_counts[z2][2]
-                        print('Not the same zone:', zone1, '--> [', z1_exits, z1_enter,'], ', z2, '--> [', z2_exits, z2_enter,']')
-                        # Connection will remove 1 exit from zone1 and 1 entrance from zone2
-                        if ((z1_exits + z2_exits) - 1 < 1): # and ((z1_enter + z2_enter) - 1 < 1):
-                            # Connection would create a walk with no exits # and no entrances
-                            print('Removing ', n)
+                            print('\tRemoving ', n)
                             invalid.append(n)
 
-                    # We also need to remove loops into the walk that have no downstream exits
-                    if z2 in walk:
+                    elif z2 in walk:
                         # Search for a remaining downstream exit
                         z2i = walk.index(z2)
                         flag = 0
                         for wi in range(z2i, len(walk)):
-                            if zone_counts[walk[wi]][1] > 0:
+                            if walk[wi] == zone1 and zone_counts[zone1][1] > 1:
+                                flag = 1
+                                break
+                            elif zone_counts[walk[wi]][1] > 0:
                                 flag = 1
                                 break
                         if flag == 0:
                             # If no remaining downstream exit, remove this entrance
+                            invalid.append(n)
+
+                    else:
+                        # z2 isn't in the walk yet.  Verify that the connection would still have exits.
+                        z2_exits = zone_counts[z2][1]
+                        z2_enter = zone_counts[z2][2]
+                        print('\tNot the same zone:', zone1, '--> [', z1_exits, z1_enter,'], ', z2, '--> [', z2_exits, z2_enter,']')
+                        # Connection will remove 1 exit from zone1 and 1 entrance from zone2
+                        if (z2_exits < 1):
+                            # Connection would create a walk with no exits
+                            print('\tRemoving ', n)
                             invalid.append(n)
 
             for i in invalid:
@@ -314,11 +331,16 @@ def zoneWalker(room_doors, zones, zone_counts, forcing={}):
             print('Valid entrances: ', valid)
             nib = valid.pop(randrange(len(valid)))
             zone2 = nib_zones[nib]
-            nibs.remove(nib)
+            if nib in nibs:
+                nibs.remove(nib)
+                zone_counts[zone2][2] -= 1  # decrement entrances (nibs) in zone2
+            if nib in forced_nibs:
+                forced_nibs.remove(nib)
 
             # Write the connection
             map.append([nob, nib])
             print('Connected: ', nob, ' (zone ', zone1, ') --> ', nib, '(zone ', zone2, ')')
+            zone_counts[zone1][1] -= 1  # decrement exits (nobs) in zone1
 
             # Update the walk and zone counts
             walk.append(zone2)  # DOES it matter than a zone can appear more than once in the walk?
@@ -326,8 +348,6 @@ def zoneWalker(room_doors, zones, zone_counts, forcing={}):
             # The downstream search always starts from the first instance (index = 1) so it will repeat any repeated
             # rooms (index = 5), but this just confirms you are always checking every zone you can reach for exits
             # (including 'A' @ index = 4; although A is technically upstream of B, B is also upstream of A).
-            zone_counts[zone1][1] -= 1  # decrement exits (nobs) in zone1
-            zone_counts[zone2][2] -= 1  # decrement entrances (nibs) in zone2
 
             # If we created a loop, combine all zones in the loop into a new zone
             # A loop is created when a zone appears a second time in the walk.  It will always be bookended by zone2.
@@ -338,8 +358,9 @@ def zoneWalker(room_doors, zones, zone_counts, forcing={}):
                     print('Self-only loop, skipping.')
                     walk = walk[:-1]
                 else:
-                    print('Compressing loop.')
                     # Create a new zone with the properties of all the zones in the loop
+                    print('Compressing loop.')
+                    # Gather information on the new zone
                     newzone = []
                     newzone_count = [0, 0, 0]
                     newzone_nobs = []
@@ -350,16 +371,23 @@ def zoneWalker(room_doors, zones, zone_counts, forcing={}):
                             newzone_count[j] += zone_counts[zi][j]
                         newzone_nobs.extend(zone_nobs[zi])
                         newzone_nibs.extend(zone_nibs[zi])
+                        # Delete old zone information
+                        zones[zi] = []
+                        zone_counts[zi] = [0,0,0]
+                        zone_nobs[zi] = []
+                        zone_nibs[zi] = []
                     nzi = len(zones)  # new zone index
+                    # Create the new zone
                     zones.append(newzone)
                     zone_counts.append(newzone_count)
                     zone_nobs[nzi] = newzone_nobs
+                    # Update dictionaries for nob zones & nib zones
                     for n in zone_nobs[nzi]:
                         nob_zones[n] = nzi
                     zone_nibs[nzi] = newzone_nibs
                     for n in zone_nibs[nzi]:
                         nib_zones[n] = nzi
-                    # finally, update walk to replace the loop with the new zone ID
+                    # Update walk to replace the loop with the new zone ID
                     walk = walk[:walk.index(zone2)]
                     walk.append(nzi)
                     zone2 = nzi
@@ -376,5 +404,9 @@ def zoneWalker(room_doors, zones, zone_counts, forcing={}):
                 nob = available.pop(randrange(len(available)))
                 nobs.remove(nob)
                 zone1 = nob_zones[nob]
+            else:
+                if len(nobs) > 0:
+                    print('ERROR: invalid situation encountered!')
+                    break
 
     return map, walk
