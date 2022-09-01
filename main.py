@@ -6,10 +6,14 @@
 from ZoneMixer import zoneEater, zoneMaker, zoneWalker
 
 if __name__ == '__main__':
-    filename = "MTek.txt"
-
     # Read in the door list .txt file & generate rooms
-    [Rooms, RoomCounts, door_descr, forcing] = zoneEater(filename)
+    #filename = "MTek.txt"
+    #[Rooms, RoomCounts, door_descr, forcing] = zoneEater(filename)
+    filename = 'LocationRandomizer-WC.xlsm'
+    whichrooms = {}
+    whichrooms['Umaro'] = [309, 310, 311, '312a', '312b', '312c', 313, '33a']
+    [Rooms, RoomCounts, door_descr, forcing] = zoneEater(filename, whichrooms['Umaro'])
+
     print('zoneEater complete!\n\n')
 
     # Say the results

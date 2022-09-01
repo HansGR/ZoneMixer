@@ -1,54 +1,138 @@
 # ZoneMixer: a room randomizer for Final Fantasy 6
 from random import randrange
+from openpyxl import load_workbook
 
 # zoneEater: code to read in door list information and return room information
-def zoneEater(fn):
-    # Read in the door definitions from a .txt file; generate rooms & room counts
-    textfile = open(fn, "r")
-    array = textfile.readlines()
-    while array[0].strip(' ')[0]=='#':
-        # Remove comment lines at beginning
-        array.pop(0)
-    data = [j.split('#')[0].strip(' ').split('_') for j in array]
-    desc = [j.split('#')[1] for j in array]
+def zoneEater(fn, whichRooms = []):
+    # Assess the type of file
+    flag = [(fn[-4::] == '.txt'), (fn.find('.xls') > -1)]  # logical comparison: [is_txt, is_xls]
 
-    # Check to see if there are an odd number of doors:  if so, one is an exit from this zone, and we exclude it.
-    # By convention, the first door is the zone entrance
-    if len(data)%2==1:
-        data.pop(0)
+    if flag[0]:
+        # Read in the door definitions from a .txt file; generate rooms & room counts
+        textfile = open(fn, "r")
+        array = textfile.readlines()
+        while array[0].strip(' ')[0]=='#':
+            # Remove comment lines at beginning
+            array.pop(0)
+        data = [j.split('#')[0].strip(' ').split('_') for j in array]
+        desc = [j.split('#')[1] for j in array]
 
-    # Create the list of available doors
-    doors = [j[0] for j in data]
+        # Check to see if there are an odd number of doors:  if so, one is an exit from this zone, and we exclude it.
+        # By convention, the first door is the zone entrance
+        if len(data)%2==1:
+            data.pop(0)
 
-    # Create the lookup for door -> room
-    door_rooms = dict([[j[0], j[1]] for j in data])
+        # Create the list of available doors
+        doors = [j[0] for j in data]
 
-    # Create the lookup for door -> description
-    door_descr = dict([[data[j][0], desc[j]] for j in range(len(data))])
+        # Create the lookup for door -> room
+        door_rooms = dict([[j[0], j[1]] for j in data])
 
-    # Create the lookup for forced connections
-    forcing = {}
-    for j in range(len(data)):
-        if len(data[j][3]) > 0:
-            # Forcing[nob] = [list of valid forced nibs (usually length=1)]
-            forcing[data[j][0]] = data[j][3:]
+        # Create the lookup for door -> description
+        door_descr = dict([[data[j][0], desc[j]] for j in range(len(data))])
 
-    # Create dictionary for which doors are in each room
-    room_ids = list(set([j[1] for j in data]))
-    room_doors = {}
-    room_counts = {}
-    type_ind = {'d': 0,   # Normal doors
-                'o': 1,   # "outs" or trapdoor exits (nobs)
-                'i': 2}   # "ins" or trapdoor entrances (nibs)
-    for R in room_ids:
-        thisdoors = [[], [], []]
-        thiscounts = [0, 0, 0]
-        for d in data:
-            if d[1] == R:
-                thisdoors[type_ind[d[2]]].append(d[0])
-                thiscounts[type_ind[d[2]]] += 1
-        room_doors[R] = thisdoors
-        room_counts[R] = thiscounts
+        # Create the lookup for forced connections
+        forcing = {}
+        for j in range(len(data)):
+            if len(data[j][3]) > 0:
+                # Forcing[nob] = [list of valid forced nibs (usually length=1)]
+                forcing[data[j][0]] = data[j][3:]
+
+        # Create dictionary for which doors are in each room
+        room_ids = list(set([j[1] for j in data]))
+        room_doors = {}
+        room_counts = {}
+        type_ind = {'d': 0,   # Normal doors
+                    'o': 1,   # "outs" or trapdoor exits (nobs)
+                    'i': 2}   # "ins" or trapdoor entrances (nibs)
+        for R in room_ids:
+            thisdoors = [[], [], []]
+            thiscounts = [0, 0, 0]
+            for d in data:
+                if d[1] == R:
+                    thisdoors[type_ind[d[2]]].append(d[0])
+                    thiscounts[type_ind[d[2]]] += 1
+            room_doors[R] = thisdoors
+            room_counts[R] = thiscounts
+
+    elif flag[1]:
+        # Read in the door definitions from a .xls file; generate rooms & room counts
+        wb = load_workbook(fn)
+        ws = wb['Exits']
+
+        doors = []
+        door_rooms = {}
+        door_descr = {}
+        rooms = []
+        room_doors = {}
+        room_counts = {}
+        forcing = {}
+
+        for r in ws.iter_rows(3):
+            this_ID = r[0].value
+            # this_parentMap = r[1].value
+            # this_X = r[2].value
+            # this_Y = r[3].value
+            # this_destMap = r[4].value
+            # this_destX = r[5].value
+            # this_destY = r[6].value
+            # this_facing = r[7].value
+            # this_displayLocName = r[8].value
+            # this_refreshParentMap = r[9].value
+            # this_unknown = r[10].value
+            # this_longExitSize = r[11].value
+            # this_longExitOrientation = r[12].value
+            this_name = r[16].value
+            this_roomID = r[22].value
+            this_roomName = r[23].value
+            this_roomName = r[23].value
+            this_type = 0
+
+            if len(whichRooms) == 0 or this_roomID in whichRooms:
+                print('Reading door #', this_ID)
+
+                # Handle Forcing
+                this_forced = r[41].value  # Column AP
+                if this_forced is not None:
+                    forcing[this_ID] = [this_forced]
+
+                # Allow the option to declare which rooms to include
+                if r[40].value is not None:
+                    # This is an event (one-way) door that leads to a one-way exit
+                    this_type = 1
+                    addExit = True
+                    if this_forced in doors:
+                        # Check if it's connected to an entrance (forced destination) or an exit (force shared destination)
+                        forced_type = [i for i in range(3) if this_forced in room_doors[door_rooms[this_forced]][i]][0]
+                        if forced_type == 1:
+                            # do not add a unique exit
+                            addExit = False
+
+                doors.append(this_ID)
+                door_rooms[this_ID] = this_roomID
+                door_descr[this_ID] = this_name
+                if this_roomID not in rooms:
+                    rooms.append(this_roomID)
+                    # initialize room info
+                    room_doors[this_roomID] = [[], [], []]
+                    room_counts[this_roomID] = [0, 0, 0]
+                room_doors[this_roomID][this_type].append(this_ID)
+                room_counts[this_roomID][this_type] += 1
+
+                if this_type == 1 and addExit:
+                    # Add the one-way exit door
+                    entr_ID = 1000 + this_ID  # create unique ID for associated 1-way entrance
+                    entr_roomID = r[40].value  # NOTE: NEED TO ADD THIS FIELD (Col AO)!!!
+                    doors.append(entr_ID)
+                    door_rooms[entr_ID] = entr_roomID
+                    door_descr[entr_ID] = this_name + ' DESTINATION'
+                    if entr_roomID not in rooms:
+                        rooms.append(entr_roomID)
+                        # initialize room info
+                        room_doors[entr_roomID] = [[], [], []]
+                        room_counts[entr_roomID] = [0, 0, 0]
+                    room_doors[entr_roomID][2].append(entr_ID)
+                    room_counts[entr_roomID][2] += 1
 
     return room_doors, room_counts, door_descr, forcing
 
@@ -217,7 +301,9 @@ def zoneWalker(room_doors, zones, zone_counts, forcing={}):
     to_force = [n for n in forcing.keys() if n in nobs]
     forced_nibs = []
     for n in to_force:
-        forced_nibs.extend(forcing[n])
+        # Disallow forced nibs, except for the forcing nob
+        if forcing[n] in nibs:
+            forced_nibs.extend(forcing[n])
 
     # Walk through all valid one-ways, connecting all zones and returning to the starting point
     map = []
